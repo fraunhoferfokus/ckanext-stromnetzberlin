@@ -53,7 +53,29 @@ class StromnetzBerlinCKANHarvester(GroupCKANHarvester):
                 'compatibility problems.'}
 
     def amend_package(self, package):
+        log.debug("Amending package '{name}'".format(name=package["name"]))
         package['groups'] = ['verentsorgung']
+        
+        # turn the date arrays into individual extras entries
+        # something weird here: the value I get back from package['extras']['dates'] is sometimes a list (good),
+        # sometimes a string (bad). So I use a hackish combination of eval and str that should work on both
+        # cases and always give me back a list
+        # dates = package['extras']['dates']
+        if 'dates' in package['extras']:
+            dates = eval(str(package['extras']['dates']))
+            log.debug("dates: '{datestring}'".format(datestring=str(dates)))
+            released = filter(lambda x: x['role'] == 'veroeffentlicht', dates)
+            updated = filter(lambda x: x['role'] == 'aktualisiert', dates)
+            if len(released) > 0:
+                package["extras"]["date_released"] = released[0]["date"]
+            if len(updated) > 0:
+                package["extras"]["date_updated"] = updated[0]["date"]
+                
+        if 'contacts' in package['extras']:
+            contacts = eval(str(package['extras']['contacts']))
+            maintainer = filter(lambda x: x['role'] == 'ansprechpartner', contacts)
+            if len(maintainer) > 0:
+                package['maintainer'] = maintainer[0]['name']
 
     def import_stage(self, harvest_object):
         package_dict = json.loads(harvest_object.content)
